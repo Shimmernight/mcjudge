@@ -91,7 +91,7 @@ python3 scripts/judge.py --new-relic "龙焰鸡腿堡" "你的吃法"  # 庭前�
 ```
 
 3. 启用 `mcd-mcp` 连接器，把本仓库 `skill/` 目录作为技能导入 WorkBuddy
-4. 对 WorkBuddy 说：「我要接受麦门审判：巨无霸去酱，可乐兑雪碧」，然后等待宣判与救赎套餐
+4. 对 WorkBuddy 说：「**开庭**」——判官直接调取你的麦当劳历史订单提审，一句话都不用交代；也可以主动供述：「我要接受麦门审判：巨无霸去酱，可乐兑雪碧」
 
 其他支持 Streamable HTTP 的 MCP Client（Cherry Studio / Cursor / Trae 等）同样可用，把 `skill/SKILL.md` 的内容作为系统提示词/项目规则接入即可。
 

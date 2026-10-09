@@ -19,6 +19,7 @@ import sys
 NEW_RELIC_RE = re.compile(r"[一-鿿]{2,8}(?:麦旋风|麦满分|脆汁鸡|鸡腿堡|鸡腿|鸡翅|鸡排|圆筒|肉卷|新地|粥|派|堡)")
 NEW_RELIC_BONUS = 2          # 每件新生圣物 +2
 NEW_RELIC_CAP = 6            # 单次判决尝鲜分上限，防止堆词刷分
+NEW_RELIC_AUTO_MAX_LEN = 60  # 自动识别仅限短供述；长档案（订单史）一律走 --new-relic 庭前查档
 NEW_RELIC_REMARK = "律法未载的新生圣物，敢为人先，赐尝鲜分。"
 
 # ---------------------------------------------------------------------------
@@ -35,6 +36,8 @@ PIOUS = [
     ("双层吉士", 7, "双层吉士，双倍芝士即双倍敬意。"),
     ("麦乐鸡", 5, "麦乐鸡配酸辣酱，圣餐礼定式。"),
     ("酸辣酱", 4, "麦乐鸡不蘸酸辣酱等于白来，你懂行。"),
+    ("麦旋风", 4, "麦旋风，甜品界的转经筒，每一勺都是螺旋的祈祷。"),
+    ("无糖", 3, "圣水换无糖，苦修但不改信仰。"),
     ("薯条蘸", 8, "薯条蘸圆筒/冰淇淋，麦门隐修派的绝学，本庭肃然起敬。"),
     ("圆筒", 3, "甜筒入列，餐后有救赎。"),
     ("1+1", 6, "随心配 1+1，精打细算亦是修行。"),
@@ -83,10 +86,15 @@ def stable_jitter(text: str, lo: int = -3, hi: int = 3) -> int:
 
 
 def detect_new_relics(text: str, matched: set) -> list:
-    """识别未被律法收录的新品名：候选名词与已判关键词无重叠才算新圣物。"""
+    """识别未被律法收录的新品名：候选名词与已判关键词无重叠才算新圣物。
+    仅对短供述启用（长档案里的常规商品不是新品，会造成假阳性）。"""
+    if len(text) > NEW_RELIC_AUTO_MAX_LEN:
+        return []
     relics = []
     for m in NEW_RELIC_RE.finditer(text):
-        relic = m.group(0)
+        relic = re.sub(r"^[加配和带与]+", "", m.group(0)) or m.group(0)
+        if len(relic) < 3:
+            continue
         if any(kw in relic or relic in kw for kw in matched if kw != "（空白证词）"):
             continue
         if relic not in relics:
