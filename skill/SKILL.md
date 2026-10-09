@@ -27,10 +27,16 @@ description: 麦门判官 —— 开庭审判你的麦当劳吃法，计算麦�
 
 ### 第三步：宣判
 
+**庭前查档**（有 mcd-mcp 时先做）：麦当劳上新快，律法关键词追不上。宣判前先调 `campaign-calendar`（和点餐场景下的 `query-meals`）核对证词里出现的新品名，把律法未收录的新品全名通过 `--new-relic` 传给引擎，按「新生圣物」计尝鲜分（每个 +2，单次上限 +6）。
+
 调用 `scripts/judge.py` 计算纯度：
 
 ```bash
+# 一般案件
 python3 scripts/judge.py "用户的吃法描述"
+
+# 庭前查档发现新品时（如 GD 联名龙焰鸡腿堡）
+python3 scripts/judge.py --new-relic "龙焰鸡腿堡,蓝莓爆爆珠麦旋风" "用户的吃法描述"
 ```
 
 输出 JSON 含：纯度分、段位、逐条锐评。把结果润色成正式判决书：

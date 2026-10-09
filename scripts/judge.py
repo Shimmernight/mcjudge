@@ -11,7 +11,15 @@
 
 import hashlib
 import json
+import re
 import sys
+
+# 新品识别：律法关键词追不上麦当劳上新速度，
+# 未收录的「疑似圣物」按新生圣物处理，赐尝鲜分。
+NEW_RELIC_RE = re.compile(r"[一-鿿]{2,8}(?:麦旋风|麦满分|脆汁鸡|鸡腿堡|鸡腿|鸡翅|鸡排|圆筒|肉卷|新地|粥|派|堡)")
+NEW_RELIC_BONUS = 2          # 每件新生圣物 +2
+NEW_RELIC_CAP = 6            # 单次判决尝鲜分上限，防止堆词刷分
+NEW_RELIC_REMARK = "律法未载的新生圣物，敢为人先，赐尝鲜分。"
 
 # ---------------------------------------------------------------------------
 # 律法条文：关键词 → (分值, 判词)
@@ -74,16 +82,46 @@ def stable_jitter(text: str, lo: int = -3, hi: int = 3) -> int:
     return lo + digest[0] % (hi - lo + 1)
 
 
-def judge(text: str) -> dict:
+def detect_new_relics(text: str, matched: set) -> list:
+    """识别未被律法收录的新品名：候选名词与已判关键词无重叠才算新圣物。"""
+    relics = []
+    for m in NEW_RELIC_RE.finditer(text):
+        relic = m.group(0)
+        if any(kw in relic or relic in kw for kw in matched if kw != "（空白证词）"):
+            continue
+        if relic not in relics:
+            relics.append(relic)
+    return relics
+
+
+def judge(text: str, extra_relics=None) -> dict:
     lowered = text.lower()
     score = 50  # 起始纯度：生而平等，善恶自负
     notes = []
+    matched = set()
 
     for kw, pts, remark in PIOUS + HERETIC + EASTER_EGGS:
         if kw.lower() in lowered:
+            matched.add(kw)
             score += pts
             verdict_word = "虔诚" if pts > 0 else "异端"
             notes.append({"evidence": kw, "delta": pts, "kind": verdict_word, "remark": remark})
+
+    # 新生圣物：自动识别 + 庭前查档传入（--new-relic）合并去重。
+    # 查档传入的是核验过的新品全名（可能包含已判关键词如「板烧」），故只做精确去重。
+    relics = detect_new_relics(text, matched)
+    for r in (extra_relics or []):
+        if r and r not in relics and not any(r in x or x in r for x in relics):
+            relics.append(r)
+    for relic in relics[:NEW_RELIC_CAP // NEW_RELIC_BONUS]:
+        matched.add(relic)
+        score += NEW_RELIC_BONUS
+        notes.append({
+            "evidence": relic,
+            "delta": NEW_RELIC_BONUS,
+            "kind": "新生圣物",
+            "remark": NEW_RELIC_REMARK,
+        })
 
     if not notes:
         score += 5
@@ -146,12 +184,24 @@ def render_verdict(result: dict) -> str:
 
 
 def main() -> int:
-    args = [a for a in sys.argv[1:] if a != "--json"]
-    as_json = "--json" in sys.argv
-    if not args:
-        print("用法: judge.py [--json] \"你的麦当劳吃法描述\"", file=sys.stderr)
+    argv = sys.argv[1:]
+    as_json = "--json" in argv
+    extra_relics = []
+    rest = []
+    i = 0
+    while i < len(argv):
+        if argv[i] == "--new-relic" and i + 1 < len(argv):
+            extra_relics = [x for x in re.split(r"[,，]", argv[i + 1]) if x]
+            i += 2
+        elif argv[i] == "--json":
+            i += 1
+        else:
+            rest.append(argv[i])
+            i += 1
+    if not rest:
+        print("用法: judge.py [--json] [--new-relic \"新品1,新品2\"] \"你的麦当劳吃法描述\"", file=sys.stderr)
         return 2
-    result = judge(" ".join(args))
+    result = judge(" ".join(rest), extra_relics=extra_relics)
     if as_json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
